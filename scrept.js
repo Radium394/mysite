@@ -1,0 +1,286 @@
+// Данные для артов - обновлены для соответствия изображениям в галерее
+const artData = {
+    1: {
+        src: "https://github.com/Radium394/MySite/blob/main/IMG_20251205_162554_873.jpg?raw=true",
+        title: "Мой бюст",
+        description: "Переделанный вариант сделанный мною"
+    },
+    2: {
+        src: "https://github.com/Radium394/MySite/blob/main/IMG_20251205_164211_773.jpg?raw=true",
+        title: "Пробное лого PSA Union",
+        description: "Пытался придумать новые логотипы"
+    },
+    3: {
+        src: "https://github.com/Radium394/MySite/blob/main/IMG_20251205_164317_715.jpg?raw=true",
+        title: "Я нарисовал Дестани",
+        description: "Концепт-арт, 2023"
+    },
+    4: {
+        src: "https://github.com/Radium394/MySite/blob/main/IMG_20251129_125500_600.jpg?raw=true",
+        title: "Новый год в армии",
+        description: "Генерация частей в AI и дорисовка и доведение до ума"
+    }
+};
+
+// Переменные для управления масштабированием и перемещением
+let currentScale = 1;
+let isDragging = false;
+let startX, startY;
+let translateX = 0, translateY = 0;
+let lastTranslateX = 0, lastTranslateY = 0;
+const SCALE_STEP = 0.2;
+const MAX_SCALE = 3;
+const MIN_SCALE = 0.5;
+
+// Прогресс-бар при прокрутке
+window.addEventListener('scroll', function() {
+    const winScroll = document.body.scrollTop || document.documentElement.scrollTop;
+    const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+    const scrolled = (winScroll / height) * 100;
+    document.getElementById('progressBar').style.width = scrolled + '%';
+    
+    // Показываем компактную навигацию при прокрутке
+    const compactNav = document.getElementById('compactNav');
+    if (winScroll > 300) {
+        compactNav.classList.add('visible');
+    } else {
+        compactNav.classList.remove('visible');
+    }
+    
+    // Анимация появления секций при прокрутке
+    const sections = document.querySelectorAll('.section');
+    sections.forEach(section => {
+        const sectionTop = section.getBoundingClientRect().top;
+        const windowHeight = window.innerHeight;
+        
+        if (sectionTop < windowHeight * 0.75) {
+            section.classList.add('visible');
+        }
+    });
+});
+
+// Плавная прокрутка к секциям
+function scrollToSection(sectionId) {
+    const section = document.getElementById(sectionId);
+    if (section) {
+        // Мягкая прокрутка вместо резкого перехода
+        window.scrollTo({
+            top: section.offsetTop - 70,
+            behavior: 'smooth'
+        });
+    }
+}
+
+// Открытие модального окна с артом
+function openFullscreenModal(artId) {
+    const modal = document.getElementById('artModal');
+    const modalImage = document.getElementById('modalImage');
+    const zoomInfo = document.getElementById('zoomInfo');
+    
+    if (artData[artId]) {
+        modalImage.src = artData[artId].src;
+        
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+        
+        // Сброс параметров при открытии
+        currentScale = 1;
+        translateX = 0;
+        translateY = 0;
+        lastTranslateX = 0;
+        lastTranslateY = 0;
+        
+        updateImageTransform();
+        updateZoomInfo();
+        
+        // Добавляем обработчики событий для перемещения
+        addDragHandlers();
+    }
+}
+
+// Закрытие модального окна
+function closeFullscreenModal() {
+    const modal = document.getElementById('artModal');
+    modal.classList.remove('active');
+    document.body.style.overflow = 'auto';
+    
+    // Удаляем обработчики событий
+    removeDragHandlers();
+}
+
+// Закрытие модального окна при клике на оверлей
+document.getElementById('artModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeFullscreenModal();
+    }
+});
+
+// Закрытие модального окна клавишей ESC
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeFullscreenModal();
+    }
+});
+
+// Управление масштабированием
+function zoomIn() {
+    if (currentScale < MAX_SCALE) {
+        currentScale += SCALE_STEP;
+        updateImageTransform();
+        updateZoomInfo();
+    }
+}
+
+function zoomOut() {
+    if (currentScale > MIN_SCALE) {
+        currentScale -= SCALE_STEP;
+        updateImageTransform();
+        updateZoomInfo();
+    }
+}
+
+function resetZoom() {
+    currentScale = 1;
+    translateX = 0;
+    translateY = 0;
+    lastTranslateX = 0;
+    lastTranslateY = 0;
+    updateImageTransform();
+    updateZoomInfo();
+}
+
+function updateImageTransform() {
+    const imageContainer = document.getElementById('imageContainer');
+    if (imageContainer) {
+        imageContainer.style.transform = `translate(${translateX}px, ${translateY}px) scale(${currentScale})`;
+    }
+}
+
+function updateZoomInfo() {
+    const zoomInfo = document.getElementById('zoomInfo');
+    if (zoomInfo) {
+        zoomInfo.textContent = `Масштаб: ${Math.round(currentScale * 100)}%`;
+    }
+}
+
+// Функции для перемещения изображения
+function addDragHandlers() {
+    const imageContainer = document.getElementById('imageContainer');
+    if (!imageContainer) return;
+    
+    // Для мыши
+    imageContainer.addEventListener('mousedown', startDrag);
+    document.addEventListener('mousemove', drag);
+    document.addEventListener('mouseup', endDrag);
+    
+    // Для сенсорных устройств
+    imageContainer.addEventListener('touchstart', startDragTouch);
+    document.addEventListener('touchmove', dragTouch);
+    document.addEventListener('touchend', endDrag);
+}
+
+function removeDragHandlers() {
+    const imageContainer = document.getElementById('imageContainer');
+    if (!imageContainer) return;
+    
+    imageContainer.removeEventListener('mousedown', startDrag);
+    document.removeEventListener('mousemove', drag);
+    document.removeEventListener('mouseup', endDrag);
+    
+    imageContainer.removeEventListener('touchstart', startDragTouch);
+    document.removeEventListener('touchmove', dragTouch);
+    document.removeEventListener('touchend', endDrag);
+}
+
+// Обработчики для мыши
+function startDrag(e) {
+    if (currentScale > 1) {
+        isDragging = true;
+        startX = e.clientX - translateX;
+        startY = e.clientY - translateY;
+        document.getElementById('imageContainer').classList.add('grabbing');
+    }
+}
+
+function drag(e) {
+    if (!isDragging) return;
+    e.preventDefault();
+    
+    translateX = e.clientX - startX;
+    translateY = e.clientY - startY;
+    
+    updateImageTransform();
+}
+
+// Обработчики для сенсорных устройств
+function startDragTouch(e) {
+    if (currentScale > 1 && e.touches.length === 1) {
+        isDragging = true;
+        startX = e.touches[0].clientX - translateX;
+        startY = e.touches[0].clientY - translateY;
+        document.getElementById('imageContainer').classList.add('grabbing');
+    }
+}
+
+function dragTouch(e) {
+    if (!isDragging || e.touches.length !== 1) return;
+    e.preventDefault();
+    
+    translateX = e.touches[0].clientX - startX;
+    translateY = e.touches[0].clientY - startY;
+    
+    updateImageTransform();
+}
+
+function endDrag() {
+    isDragging = false;
+    lastTranslateX = translateX;
+    lastTranslateY = translateY;
+    document.getElementById('imageContainer').classList.remove('grabbing');
+}
+
+// Переключение отображения текста при клике на арт
+document.addEventListener('DOMContentLoaded', function() {
+    const galleryItems = document.querySelectorAll('.gallery-item');
+    
+    galleryItems.forEach(item => {
+        item.addEventListener('click', function(e) {
+            // Проверяем, не кликнули ли мы на кнопку полноэкранного режима
+            if (!e.target.closest('.view-fullscreen')) {
+                this.classList.toggle('show-text');
+            }
+        });
+    });
+    
+    // Инициализация компактной навигации
+    const compactNavLinks = document.querySelectorAll('.compact-nav a');
+    compactNavLinks.forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            const targetId = this.getAttribute('href').substring(1);
+            scrollToSection(targetId);
+        });
+    });
+    
+    // Делаем видимой только первую секцию
+    const sections = document.querySelectorAll('.section');
+    sections.forEach((section, index) => {
+        if (index === 0) {
+            section.classList.add('visible');
+        }
+    });
+    
+    // Добавляем анимацию для кнопок навигации
+    const navButtons = document.querySelectorAll('.nav-btn');
+    navButtons.forEach(button => {
+        button.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-5px)';
+        });
+        
+        button.addEventListener('mouseleave', function() {
+            if (!this.classList.contains('active')) {
+                this.style.transform = 'translateY(0)';
+            }
+        });
+    });
+});
